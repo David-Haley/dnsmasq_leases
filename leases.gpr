@@ -1,0 +1,8 @@
+project Leases is
+
+   for Source_Dirs use ("src", "../DJH/src");
+   for Object_Dir use "obj";
+   for Main use ("leases.adb");
+
+end Leases;
+
