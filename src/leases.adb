@@ -4,8 +4,9 @@
 
 -- Author    : David Haley
 -- Created   : 05/11/2019
--- Last Edit : 16/07/2022
+-- Last Edit : 22/03/2025
 
+-- 20250322 : Tidy up, change to linked list and include version number.
 -- 20220716 : Adds number of leases to header.
 -- 20210304 : Unified version of date and time strings used.
 -- 20191112 : MAC_Addresses in now an unsigned number
@@ -19,14 +20,16 @@ with Ada.Strings.Maps.Constants; use Ada.Strings.Maps.Constants;
 with Ada.Strings.Fixed; use Ada.Strings.Fixed;
 with Ada.Strings.Unbounded; use Ada.Strings.Unbounded;
 with Ada.Containers; use Ada.Containers;
-with Ada.Containers.Vectors;
+with Ada.Containers.Doubly_Linked_Lists;
 with Interfaces; use Interfaces;
 with DJH.Date_and_Time_Strings; use DJH.Date_and_Time_Strings;
 
 procedure Leases is
 
-   package Leases_Lists is new Ada.Containers.Vectors (Positive,
-                                                       Unbounded_String);
+   Version_String : String := "leases version 20250322";
+   
+   package Leases_Lists is new
+     Ada.Containers.Doubly_Linked_Lists (Unbounded_String);
    use Leases_Lists;
 
    subtype MAC_Addresses is Unsigned_64 range 0 .. 2 ** 48 - 1;
@@ -45,9 +48,8 @@ procedure Leases is
       Host_Name : Unbounded_String;
    end record; -- Leases_Elements
 
-   package Leases_Tables is new Ada.Containers.Vectors (Positive,
-                                                        Lease_Elements);
-
+   package Leases_Tables is new
+     Ada.Containers.Doubly_Linked_Lists (Lease_Elements);
    use Leases_Tables;
 
    function Host_Compare (Left, Right : Lease_Elements) return Boolean is
@@ -65,37 +67,28 @@ procedure Leases is
    package Host_Sort is new Leases_Tables.Generic_Sorting (Host_Compare);
 
    function IP_Compare (Left, Right : Lease_Elements) return Boolean is
-
-   begin -- IP_Compare
-      return Left.IP_Address < Right.IP_Address;
-   end IP_Compare;
+      (Left.IP_Address < Right.IP_Address);
 
    package IP_Sort is new Leases_Tables.Generic_Sorting (IP_Compare);
 
    function MAC_Compare (Left, Right : Lease_Elements) return Boolean is
-
-   begin -- MAC_Compare
-      return Left.MAC_Address < Right.MAC_Address;
-   end MAC_Compare;
+      (Left.MAC_Address < Right.MAC_Address);
 
    package MAC_Sort is new Leases_Tables.Generic_Sorting (MAC_Compare);
 
    function Time_Compare (Left, Right : Lease_Elements) return Boolean is
-
-   begin -- Time_Compare
-      return Left.Lease_End < Right.Lease_End;
-   end Time_Compare;
+      (Left.Lease_End < Right.Lease_End);
 
    package Time_Sort is new Leases_Tables.Generic_Sorting (Time_Compare);
 
-   procedure Read_List (Leases_List : out Leases_Lists.Vector) is
+   procedure Read_List (Leases_List : out Leases_Lists.List) is
 
       Leases_File_Name : String := "/var/lib/misc/dnsmasq.leases";
       Leases_File : File_Type;
       Text : Unbounded_String;
 
    begin -- Read_List
-      Leases_List := Leases_Lists.Empty_Vector;
+      Clear (Leases_List);
       Open (Leases_File, In_File, Leases_File_Name);
       while not End_Of_File (Leases_File) loop
          Ada.Text_IO.Unbounded_IO.Get_Line (Leases_File, Text);
@@ -104,8 +97,8 @@ procedure Leases is
       Close (Leases_File);
    end Read_List;
 
-   procedure Build_Table (Leases_List : in Leases_Lists.Vector;
-                          Leases_Table : out Leases_Tables.Vector) is
+   procedure Build_Table (Leases_List : in Leases_Lists.List;
+                          Leases_Table : out Leases_Tables.List) is
 
       Lease_Element : Lease_Elements;
       Delimiter : Character_Set := To_Set (' ');
@@ -113,7 +106,7 @@ procedure Leases is
       Last : Natural;
 
    begin -- Build_Table
-      Leases_Table := Leases_Tables.Empty_Vector;
+      Clear (Leases_Table);
       for I in Iterate (Leases_List) loop
          Start_At := 1;
          -- Parse Posix time
@@ -195,10 +188,11 @@ procedure Leases is
       return To_String (Result);
    end IP_String;
 
-   procedure Write_Table (Leases_Table : in Leases_Tables.Vector) is
+   procedure Write_Table (Leases_Table : in Leases_Tables.List) is
 
    begin -- Write_Table
-      Put_Line ("dnsmasq current leases:" & Length (Leases_Table)'img &
+      Put_Line (Version_String);
+      Put_Line ("current dnsmasq leases:" & Length (Leases_Table)'img &
                 " at " & Time_String);
       Put_Line ("IP Address      MAC Address       Time     Host Name");
       for I in Iterate (Leases_Table) loop
@@ -210,8 +204,8 @@ procedure Leases is
    end Write_Table;
 
    Sort_Type : Character := 'i';
-   Leases_List : Leases_Lists.Vector;
-   Leases_Table : Leases_Tables.Vector;
+   Leases_List : Leases_Lists.List;
+   Leases_Table : Leases_Tables.List;
 
 begin -- Leases
    if Argument_Count = 1 then
